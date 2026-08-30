@@ -1,0 +1,40 @@
+body {
+    margin: 0;
+    font-family: Arial, "Microsoft JhengHei", sans-serif;
+    background-color: #f5f7fa;
+    color: #202124;
+}
+
+.app {
+    width: 300px;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+h1 {
+    margin-top: 0;
+    font-size: 20px;
+}
+
+#status {
+    padding: 12px;
+    background-color: #ffffff;
+    border: 1px solid #d8dde6;
+    border-radius: 6px;
+    line-height: 1.5;
+}
+
+#testButton {
+    width: 100%;
+    padding: 10px 1px;
+    border: 0;
+    border-radius: 6px;
+    background-color: #0f6cdb;
+    color: #ffffff;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+#testButton:hover {
+    background-color: #115ea3;
+}

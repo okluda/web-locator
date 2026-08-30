@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>網頁定位工具</title>
+    <link rel="stylesheet" href="sidepanel.css">
+</head>
+<body>
+    <main class="app">
+        <header class="app-header">
+            <h1>網頁定位工具</h1>
+
+            <p class="app-description">
+                選取並記錄網頁上的輸入欄位
+            </p>
+        </header>
+
+        <section class="panel-section">
+            <div class="section-heading">
+                <div>
+                    <h2>定位區</h2>
+                
+                    <p class="section-description">
+                    啟動後，可在目標網頁中選取輸入欄位。
+                    </p>
+                </div>
+
+                <span id="modeBadge" class="status-badgestatus-idle">
+                    待命
+                </span>
+            </div>
+
+            <div id="statusBox" class="status-box" role="status" aria-live="polite">
+                <strong>目前狀態:</strong>
+                <span id="statusText">尚未開始定位</span>
+            </div>
+            
+            <button id="locateButton" class="primary-button" type="button" aria-pressed="false">
+                開始定位
+            </button>
+        </section>
+
+        <section class="panel-section">
+            <div class="list-heading">
+                <h2>定位清單</h2>
+                
+                <span id="itemCount" class="item-count">
+                    0 筆
+                </span>
+            </div>
+
+            <div id="emptyState" class="empty-state">
+                <p class="empty-title">目前尚未紀錄任何網頁欄位</p>
+
+                <p class="empty-description">後續階段會將選取的輸入欄位顯示在這裡。</p>
+            </div>
+
+            <ul id="locatorList" class="locator-list" aria-label="已記錄的定位清單">
+                <!-- List items will be dynamically added here -->
+            </ul>
+
+            <button id="clearButton" class="secondary-button" type="button" disabled>
+                清除全部定位
+            </button>
+        </section>
+
+        <footer class="app-footer">
+            第 2 階段：介面建立完成
+        </footer>
+    </main>
+    
+    <script src="sidepanel.js"></script>    
+</body>
+</html>
