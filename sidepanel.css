@@ -610,4 +610,4 @@ display:none
 .trigger-buttons { grid-template-columns:repeat(3,minmax(0,1fr)); }
 .section-description { display:none; }
 
-.ammunition-input[type="number"] { border-color:#8764b8; background:#faf8fd; }
+.ammunition-input[type="number"]{border-color:#8764b8;background:#faf8fd}
