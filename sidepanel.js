@@ -660,7 +660,7 @@ async function load() {
   },p=ps[currentPageKey];
   locatorItems.length=0;
   testResults=new Map();
-  if(p?.locatorItems)for(const x of p.locatorItems)if(valid(x))locatorItems.push(x);
+  if(p?.locatorItems)for(const x of p.locatorItems)if(valid(x))locatorItems.push({ ...x, actionType: x.actionType === "increment" ? "increment" : "input" });
   if(typeof p?.pageTitle==="string")currentPageTitle=p.pageTitle;
   render();
   if(locatorItems.length)statusText.textContent=`已恢復 ${locatorItems.length} 筆定位。`
@@ -1146,7 +1146,8 @@ async function testLocators(items) {
         payload: items.map(function (item) {
           return {
             id: item.id,
-            selector: item.selector
+            selector: item.selector,
+            actionType: item.actionType === "increment" ? "increment" : "input"
           };
         })
       }
@@ -1626,11 +1627,17 @@ async function validateAmmunitionPlan() {
 
     usedLocatorIds.add(row.locatorId);
 
-    if (row.value === "" && !row.intentionalBlank) {
+    const isIncrement = locator.actionType === "increment";
+    if (isIncrement) {
+      const count = Number(row.value);
+      if (!Number.isInteger(count) || count < 0 || count > 50) {
+        issues.push(`第 ${index + 1} 列的加號次數必須是 0 至 50 的整數。`);
+        return;
+      }
+    } else if (row.value === "" && !row.intentionalBlank) {
       issues.push(`第 ${index + 1} 列尚未輸入資料，也未標示故意留空。`);
       return;
     }
-
     planRows.push({
       rowNumber: index + 1,
       locator: locator,
@@ -1664,7 +1671,8 @@ async function validateAmmunitionPlan() {
     payload: planRows.map(function (planRow) {
       return {
         id: planRow.locator.id,
-        selector: planRow.locator.selector
+        selector: planRow.locator.selector,
+        actionType: planRow.locator.actionType === "increment" ? "increment" : "input"
       };
     })
   });
@@ -1722,9 +1730,11 @@ function renderExecutionPlan() {
   if (ammunitionValidationState.valid) {
     ammunitionValidationState.rows.forEach(function (planRow) {
       const item = document.createElement("li");
-      const valueDescription = planRow.intentionalBlank
-        ? "故意留空"
-        : `已輸入 ${planRow.value.length} 個字元`;
+      const valueDescription = planRow.locator.actionType === "increment"
+        ? `執行 + ${Number(planRow.value)} 次`
+        : planRow.intentionalBlank
+          ? "故意留空"
+          : `已輸入 ${planRow.value.length} 個字元`;
       item.textContent =
         `${planRow.locator.name}：${valueDescription}`;
       list.appendChild(item);
@@ -1772,6 +1782,8 @@ async function executeValidatedPlan() {
             locatorId: planRow.locator.id,
             locatorName: planRow.locator.name,
             selector: planRow.locator.selector,
+            actionType: planRow.locator.actionType === "increment" ? "increment" : "input",
+            repeatCount: planRow.locator.actionType === "increment" ? Number(planRow.value) : 0,
             value: planRow.intentionalBlank ? "" : planRow.value
           };
         })
@@ -1826,6 +1838,9 @@ function getFillResultText(result) {
     readonly: "失敗：欄位為唯讀或停用",
     invisible: "失敗：欄位不可見",
     mismatch: "失敗：寫入後讀回值不一致",
+    "invalid-count": "失敗：加號次數必須是 0 至 50 的整數",
+    "button-unavailable": "失敗：加號按鈕執行中已失效",
+    stopped: `已停止：完成 ${result.completedCount || 0}／${result.requestedCount || 0} 次` ,
     "invalid-selector": "失敗：Selector 格式錯誤",
     "not-executed": "未執行：前一筆已失敗",
     error: `失敗：${result.message || "未知錯誤"}`
@@ -1912,19 +1927,26 @@ function renderAmmunitionRows() {
     locatorItems.forEach(function (locator) {
       const option = document.createElement("option");
       option.value = locator.id;
-      option.textContent = locator.name;
+      option.textContent = locator.actionType === "increment" ? `${locator.name}（+ 次數）` : locator.name;
       option.selected = locator.id === row.locatorId;
       locatorSelect.appendChild(option);
     });
 
     locatorSelect.addEventListener("change", function (event) {
       row.locatorId = event.target.value;
+      const nextLocator = locatorItems.find(function (locator) { return locator.id === row.locatorId; });
+      row.intentionalBlank = false;
+      if (nextLocator && nextLocator.actionType === "increment" && row.value === "") row.value = "1";
+      renderAmmunitionRows();
       scheduleAmmunitionSave();
     });
 
     const input = document.createElement("input");
     input.className = "ammunition-input";
-    input.type = "text";
+    const selectedLocator = locatorItems.find(function (locator) { return locator.id === row.locatorId; });
+    const isIncrement = selectedLocator && selectedLocator.actionType === "increment";
+    input.type = isIncrement ? "number" : "text";
+    if (isIncrement) { input.min = "0"; input.max = "50"; input.step = "1"; }
     input.value = row.value;
     input.autocomplete = "off";
     input.spellcheck = false;
@@ -1933,7 +1955,7 @@ function renderAmmunitionRows() {
       "aria-label",
       `第 ${index + 1} 列待填資料`
     );
-    input.placeholder = `第 ${index + 1} 列資料`;
+    input.placeholder = isIncrement ? "+ 次數（0-50）" : `第 ${index + 1} 列資料`;
 
     input.addEventListener("input", function (event) {
       row.value = event.target.value;
@@ -1947,6 +1969,8 @@ function renderAmmunitionRows() {
     const blankCheckbox = document.createElement("input");
     blankCheckbox.type = "checkbox";
     blankCheckbox.checked = row.intentionalBlank;
+    blankCheckbox.disabled = Boolean(isIncrement);
+    blankLabel.hidden = Boolean(isIncrement);
     blankCheckbox.addEventListener("change", function (event) {
       row.intentionalBlank = event.target.checked;
       scheduleAmmunitionSave();
@@ -2029,7 +2053,7 @@ function updateSetupGuide() {
   if(!ready) setSetupExpanded(true);
 }
 
-async function initializeStageEighteenTwo() {
+async function initializeStageEighteenThree() {
   renderExecutionPlan();
   renderExecutionResult();
   renderAim();
@@ -2037,6 +2061,6 @@ async function initializeStageEighteenTwo() {
   await init();
 }
 
-initializeStageEighteenTwo().catch(function (error) {
+initializeStageEighteenThree().catch(function (error) {
   showError(error);
 });
