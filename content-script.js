@@ -912,6 +912,63 @@
     });
   }
 
+  const MANUAL_TRIGGER_PROMPT_ID = "web-locator-manual-trigger-prompt";
+  let manualTriggerTimer = null;
+
+  function removeManualTriggerPrompt() {
+    if (manualTriggerTimer) {
+      window.clearTimeout(manualTriggerTimer);
+      manualTriggerTimer = null;
+    }
+    const prompt = document.getElementById(MANUAL_TRIGGER_PROMPT_ID);
+    if (prompt) prompt.remove();
+  }
+
+  async function prepareManualTrigger(payload) {
+    const result={id:payload?.id||"",status:"not-found",matchCount:0};
+    let matches;
+    try { matches=document.querySelectorAll(payload.selector); } catch { result.status="invalid-selector"; return result; }
+    result.matchCount=matches.length;
+    if(!matches.length)return result;
+    if(matches.length>1){result.status="multiple";return result;}
+    const element=matches[0];
+    if(!isSupportedAimButton(element)){result.status=element.disabled?"disabled":"unsupported";return result;}
+    element.scrollIntoView({behavior:"smooth",block:"center",inline:"center"});
+    await new Promise(resolve=>window.setTimeout(resolve,350));
+    if(!isElementVisible(element)){result.status="invisible";return result;}
+    showAimTestHighlight(element);
+    showManualTriggerPrompt(element,payload?.name||getAimButtonName(element));
+    result.status="awaiting-user-focus";
+    return result;
+  }
+
+  function showManualTriggerPrompt(aimElement, aimName) {
+    removeManualTriggerPrompt();
+    const prompt=document.createElement("div");
+    prompt.id=MANUAL_TRIGGER_PROMPT_ID;
+    prompt.setAttribute("role","dialog");
+    prompt.setAttribute("aria-label","手動板機鍵盤操作");
+    const title=document.createElement("strong");
+    title.textContent=`已找到準星：${aimName}`;
+    const text=document.createElement("p");
+    text.textContent="請先啟用網頁鍵盤操作，再按 Enter 或 Space。";
+    const actions=document.createElement("div");
+    const enable=document.createElement("button");
+    enable.type="button"; enable.textContent="啟用鍵盤操作";
+    const cancel=document.createElement("button");
+    cancel.type="button"; cancel.textContent="取消";
+    enable.addEventListener("click",function(event){
+      event.preventDefault(); event.stopPropagation();
+      aimElement.focus({preventScroll:true});
+      const focused=document.hasFocus() && document.activeElement===aimElement;
+      removeManualTriggerPrompt();
+      if(focused){ showAimTestHighlight(aimElement); }
+    });
+    cancel.addEventListener("click",function(event){ event.preventDefault(); event.stopPropagation(); removeManualTriggerPrompt(); });
+    actions.append(enable,cancel); prompt.append(title,text,actions); document.body.appendChild(prompt);
+    manualTriggerTimer=window.setTimeout(removeManualTriggerPrompt,15000);
+  }
+
   function testAimSelector(testItem) {
     const result = {
       id: testItem && testItem.id ? testItem.id : "",
@@ -1246,6 +1303,10 @@
       return;
     }
 
+    if (message.type === "PREPARE_MANUAL_TRIGGER") {
+      prepareManualTrigger(message.payload).then(result=>sendResponse({success:true,result}));
+      return true;
+    }
     if (message.type === "TEST_AIM") {
       const result = testAimSelector(message.payload);
       sendResponse({

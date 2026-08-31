@@ -1,5 +1,5 @@
 const TARGET_STORAGE_KEY = "locatorTarget";
-const ALLOWED_ORIGIN = "https://insprod.tii.org.tw";
+const ALLOWED_PROTOCOLS = new Set(["http:", "https:"]);
 
 function configureSidePanel() {
   chrome.sidePanel.setPanelBehavior({
@@ -183,7 +183,7 @@ async function handleTargetTabUpdated(tabId, changeInfo, tab) {
   const currentUrl = changeInfo.url || tab.url || "";
   const parsedUrl = parseUrl(currentUrl);
 
-  if (!parsedUrl || parsedUrl.origin !== ALLOWED_ORIGIN) {
+  if (!isAllowedUrl(parsedUrl)) {
     await stopLocatingInTab(tabId);
     await updateTargetStatus(
       target,
@@ -218,7 +218,7 @@ async function handleTargetTabUpdated(tabId, changeInfo, tab) {
   }
 
   if (changeInfo.status === "complete") {
-    if (!parsedUrl || parsedUrl.origin !== ALLOWED_ORIGIN) {
+    if (!isAllowedUrl(parsedUrl)) {
       await updateTargetStatus(
         target,
         "unauthorized",
@@ -248,12 +248,8 @@ async function handleTargetTabUpdated(tabId, changeInfo, tab) {
   }
 }
 
-function parseAllowedUrl(urlValue) {
-  const parsedUrl = parseUrl(urlValue);
-  return parsedUrl && parsedUrl.origin === ALLOWED_ORIGIN
-    ? parsedUrl
-    : null;
-}
+function parseAllowedUrl(urlValue) { const parsedUrl=parseUrl(urlValue); return isAllowedUrl(parsedUrl)?parsedUrl:null; }
+function isAllowedUrl(parsedUrl) { return Boolean(parsedUrl && ALLOWED_PROTOCOLS.has(parsedUrl.protocol)); }
 
 function parseUrl(urlValue) {
   if (typeof urlValue !== "string" || urlValue.trim() === "") {
