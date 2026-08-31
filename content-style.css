@@ -1,0 +1,74 @@
+#web-locator-connection-message  {
+position: fixed;
+top: 16px;
+right: 16px;
+z-index: 2147483647;
+max-width: 280px;
+padding: 12px 16px;
+border: 1px solid #107c10;
+border-radius: 8px;
+background-color: #ffffff;
+color: #0b5a0b;
+font-family: Arial, "Microsoft JhengHei", sans-serif;
+font-size: 14px;
+font-weight: 700;
+line-height: 1.5;
+box-shadow: 0 4px 16px rgb(0 0 0 / 20%);
+pointer-events: none;
+}
+#web-locator-highlight-box  {
+position: fixed;
+z-index: 2147483645;
+display: none;
+border: 3px solid #0f6cbd;
+border-radius: 4px;
+background-color: rgb(15 108 189 / 8%);
+box-shadow:
+0 0 0 2px rgb(255 255 255 / 90%),
+0 0 0 4px rgb(15 108 189 / 35%);
+pointer-events: none;
+}
+#web-locator-element-tooltip  {
+position: fixed;
+z-index: 2147483646;
+display: none;
+max-width: 320px;
+padding: 6px 9px;
+border-radius: 5px;
+background-color: #0f6cbd;
+color: #ffffff;
+font-family: Arial, "Microsoft JhengHei", sans-serif;
+font-size: 12px;
+font-weight: 700;
+line-height: 1.4;
+box-shadow: 0 2px 8px rgb(0 0 0 / 25%);
+pointer-events: none;
+white-space: nowrap;
+overflow: hidden;
+text-overflow: ellipsis;
+}
+#web-locator-highlight-box.web-locator-test-valid {
+border-color:#107c10;
+background-color:rgb(16 124 16 / 10%);
+box-shadow:0 0 0 2px rgb(255 255 255 / 90%),0 0 0 4px rgb(16 124 16 / 35%)
+}
+
+
+/* 第 11 階段：準星選取高亮 */
+#web-locator-highlight-box.web-locator-aim-highlight {
+  border-color: #8764b8;
+  background-color: rgb(135 100 184 / 10%);
+  box-shadow:
+    0 0 0 2px rgb(255 255 255 / 90%),
+    0 0 0 4px rgb(135 100 184 / 35%);
+}
+
+
+/* 第 13 階段：準星測試成功高亮 */
+#web-locator-highlight-box.web-locator-aim-test-valid {
+  border-color: #107c10;
+  background-color: rgb(16 124 16 / 10%);
+  box-shadow:
+    0 0 0 2px rgb(255 255 255 / 90%),
+    0 0 0 4px rgb(16 124 16 / 35%);
+}

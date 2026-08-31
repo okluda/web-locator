@@ -1,0 +1,490 @@
+* {
+box-sizing:border-box
+}
+body {
+margin:0;
+min-width:320px;
+font-family:Arial,"Microsoft JhengHei",sans-serif;
+background:#f5f7fa;
+color:#202124
+}
+.app {
+padding:16px
+}
+.app-header {
+margin-bottom:16px
+}
+.app-header h1,.section-heading h2,.list-header h2 {
+margin:0
+}
+.app-description,.section-description {
+margin:5px 0 0;
+color:#5f6368;
+font-size:13px;
+line-height:1.5
+}
+.panel-section {
+margin-bottom:16px;
+padding:16px;
+background:#fff;
+border:1px solid #d8dde6;
+border-radius:10px
+}
+.section-heading,.list-header {
+display:flex;
+justify-content:space-between;
+gap:12px
+}
+.status-badge,.item-count {
+flex-shrink:0;
+padding:4px 9px;
+border-radius:999px;
+font-size:12px;
+font-weight:700
+}
+.status-idle {
+background:#eee;
+color:#555
+}
+.status-active {
+background:#dff6dd;
+color:#0b5a0b
+}
+.status-box {
+margin-top:14px;
+padding:12px;
+border-left:4px solid #8c8c8c;
+background:#f8f9fa;
+border-radius:6px;
+font-size:14px
+}
+.status-box-active {
+border-left-color:#107c10;
+background:#f1faf1
+}
+.primary-button,.secondary-button {
+width:100%;
+margin-top:12px;
+padding:10px;
+border-radius:7px;
+cursor:pointer
+}
+.primary-button {
+border:1px solid #0f6cbd;
+background:#0f6cbd;
+color:#fff;
+font-weight:700
+}
+.primary-button-active {
+background:#a4262c;
+border-color:#a4262c
+}
+.secondary-button {
+border:1px solid #8a8886;
+background:#fff
+}
+.secondary-button:disabled,button:disabled {
+opacity:.55;
+cursor:not-allowed
+}
+.danger-button {
+color:#a4262c;
+border-color:#c42b1c
+}
+.item-count {
+background:#e8f1fb;
+color:#0f548c
+}
+.empty-state {
+margin-top:14px;
+padding:20px 14px;
+border:1px dashed #b7bcc5;
+border-radius:8px;
+text-align:center
+}
+.empty-title {
+margin:0;
+font-size:14px;
+font-weight:700
+}
+.empty-description {
+margin:6px 0 0;
+color:#6b6f76;
+font-size:13px
+}
+.locator-list {
+margin:14px 0 0;
+padding:0;
+list-style:none
+}
+.locator-item {
+display:grid;
+grid-template-columns:28px minmax(0,1fr);
+gap:10px;
+margin-bottom:10px;
+padding:12px;
+border:1px solid #d8dde6;
+border-radius:8px;
+background:#fff
+}
+.locator-sequence {
+display:flex;
+align-items:center;
+justify-content:center;
+width:26px;
+height:26px;
+border-radius:50%;
+background:#e8f1fb;
+color:#0f548c;
+font-size:12px;
+font-weight:700
+}
+.locator-information {
+display:flex;
+min-width:0;
+flex-direction:column;
+gap:4px
+}
+.locator-name {
+font-size:14px;
+overflow-wrap:anywhere
+}
+.locator-type {
+color:#5f6368;
+font-size:12px
+}
+.locator-selector {
+padding:4px 6px;
+border-radius:4px;
+background:#f3f4f6;
+font-size:11px;
+overflow-wrap:anywhere;
+white-space:normal
+}
+.locator-actions {
+grid-column:1/-1;
+display:grid;
+grid-template-columns:repeat(5,minmax(0,1fr));
+gap:5px
+}
+.locator-actions button {
+padding:6px 3px;
+border-radius:5px;
+background:#fff;
+font-size:11px;
+cursor:pointer
+}
+.locator-action-button {
+border:1px solid #8a8886
+}
+.locator-test-button {
+border:1px solid #0f6cbd;
+color:#0f548c
+}
+.locator-delete-button {
+border:1px solid #c42b1c;
+color:#a4262c
+}
+.locator-test-status {
+display:inline-block;
+align-self:flex-start;
+padding:3px 7px;
+border-radius:999px;
+font-size:11px;
+font-weight:700
+}
+.status-valid {
+background:#dff6dd;
+color:#0b5a0b
+}
+.status-not-found,.status-invalid-selector {
+background:#fde7e9;
+color:#a4262c
+}
+.status-multiple {
+background:#fff4ce;
+color:#8a4b08
+}
+.status-unsupported {
+background:#eee;
+color:#555
+}
+.list-buttons {
+display:grid;
+grid-template-columns:1fr 1fr;
+gap:8px
+}
+.app-footer {
+padding:4px;
+color:#6b6f76;
+font-size:12px;
+text-align:center
+}
+#emptyState[hidden] {
+display:none
+}
+
+
+/* 第 8 階段：瞄準區 */
+.target-empty-state {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px dashed #b7bcc5;
+  border-radius: 8px;
+  background-color: #fafbfc;
+  color: #5f6368;
+  font-size: 13px;
+  text-align: center;
+}
+
+.target-details {
+  margin: 14px 0 0;
+  padding: 12px;
+  border: 1px solid #d8dde6;
+  border-radius: 8px;
+  background-color: #f8f9fa;
+}
+
+.target-detail-row {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.target-detail-row:last-child {
+  margin-bottom: 0;
+}
+
+.target-detail-row dt {
+  color: #5f6368;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.target-detail-row dd {
+  margin: 0;
+  color: #202124;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.target-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.inline-status {
+  min-height: 20px;
+  margin: 10px 0 0;
+  color: #5f6368;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+#targetEmptyState[hidden],
+#targetDetails[hidden] {
+  display: none;
+}
+
+
+/* 第 9 階段：目標生命週期狀態 */
+.status-pending {
+  background-color: #e8f1fb;
+  color: #0f548c;
+}
+
+.status-warning {
+  background-color: #fff4ce;
+  color: #8a4b08;
+}
+
+.status-error {
+  background-color: #fde7e9;
+  color: #a4262c;
+}
+
+
+/* 第 11 階段：準星區 */
+.aim-empty-state {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px dashed #b7bcc5;
+  border-radius: 8px;
+  background-color: #fafbfc;
+  color: #5f6368;
+  font-size: 13px;
+  text-align: center;
+}
+
+.aim-details {
+  margin: 14px 0 0;
+  padding: 12px;
+  border: 1px solid #d8dde6;
+  border-radius: 8px;
+  background-color: #f8f9fa;
+}
+
+.aim-detail-row {
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1fr);
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.aim-detail-row:last-child {
+  margin-bottom: 0;
+}
+
+.aim-detail-row dt {
+  color: #5f6368;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.aim-detail-row dd {
+  margin: 0;
+  color: #202124;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+#aimSelector {
+  display: inline-block;
+  max-width: 100%;
+  padding: 3px 5px;
+  border-radius: 4px;
+  background-color: #f3f4f6;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.aim-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+#aimEmptyState[hidden],
+#aimDetails[hidden] {
+  display: none;
+}
+
+
+/* 第 13 階段：準星有效性測試 */
+.aim-buttons-three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.aim-test-result {
+  margin-top: 10px;
+  padding: 9px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.aim-test-valid {
+  background-color: #dff6dd;
+  color: #0b5a0b;
+}
+
+.aim-test-not-found,
+.aim-test-invalid-selector,
+.aim-test-error {
+  background-color: #fde7e9;
+  color: #a4262c;
+}
+
+.aim-test-multiple {
+  background-color: #fff4ce;
+  color: #8a4b08;
+}
+
+.aim-test-unsupported {
+  background-color: #eeeeee;
+  color: #555555;
+}
+
+#aimTestResult[hidden] {
+  display: none;
+}
+
+
+/* 第 14 階段：填彈區基本資料管理 */
+.privacy-notice {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-left: 4px solid #8a4b08;
+  border-radius: 6px;
+  background-color: #fff4ce;
+  color: #664000;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.ammunition-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.ammunition-row {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.ammunition-sequence {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background-color: #e8f1fb;
+  color: #0f548c;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.ammunition-input {
+  min-width: 0;
+  width: 100%;
+  padding: 8px 9px;
+  border: 1px solid #8a8886;
+  border-radius: 6px;
+  color: #202124;
+  font: inherit;
+  font-size: 13px;
+}
+
+.ammunition-input:focus {
+  border-color: #0f6cbd;
+  outline: 2px solid rgb(15 108 189 / 22%);
+}
+
+.ammunition-delete-button {
+  padding: 7px 9px;
+  border: 1px solid #c42b1c;
+  border-radius: 5px;
+  background-color: #ffffff;
+  color: #a4262c;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.ammunition-delete-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.ammunition-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
