@@ -1,19 +1,25 @@
 {
-    "manifest_version": 3,
-    "name": "網頁定位工具",
-    "version": "0.2.0",
-    "description": "用來學習選取及記錄網頁輸入元素的擴充功能",
-    "minimum_chrome_version": "114",
-    "permissions": [
-        "sidePanel"
-    ],
-    "action": {
-        "default_title": "開啟網頁定位工具"
-    },
-    "background": {
-        "service_worker": "service_worker.js"
-    },
-    "side_panel": {
-        "default_path": "sidepanel.html"
-    }
+  "manifest_version": 3,
+  "name": "網頁定位工具",
+  "version": "0.14.0",
+  "description": "用來選取及記錄網頁輸入元素的擴充功能。",
+  "minimum_chrome_version": "114",
+  "permissions": [
+    "sidePanel",
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://insprod.tii.org.tw/*"
+  ],
+  "action": {
+    "default_title": "開啟網頁定位工具"
+  },
+  "background": {
+    "service_worker": "service-worker.js"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  }
 }
