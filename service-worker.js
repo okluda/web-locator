@@ -141,6 +141,15 @@ async function stopLocatingInTab(tabId) {
   } catch (error) {
     // The page may be loading, closed, unauthorized, or have no Content Script.
   }
+
+  try {
+    await chrome.tabs.sendMessage(tabId, {
+      type: "STOP_FILLING",
+      payload: { executionId: "lifecycle-stop" }
+    });
+  } catch (error) {
+    // The page may be loading, closed, unauthorized, or have no Content Script.
+  }
 }
 
 chrome.tabs.onRemoved.addListener(function (tabId) {
