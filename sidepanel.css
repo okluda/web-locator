@@ -374,7 +374,7 @@ display:none
 
 /* 第 13 階段：準星有效性測試 */
 .aim-buttons-three {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .aim-test-result {
@@ -591,3 +591,21 @@ display:none
   grid-template-columns: 1fr 1fr;
   gap: 8px;
 }
+
+.panel-group[hidden]{display:none}.group-header,.setup-toggle-row{display:flex;gap:8px;align-items:center;justify-content:space-between}.setup-toggle-row{margin-bottom:16px}.setup-toggle-row .secondary-button{margin-top:0}.group-header h2{margin:0 0 12px}.panel-group{display:block}
+
+
+/* 0.18.2 visual grouping and compact layout */
+.panel-group { display:block; margin-bottom:16px; padding:12px; border-radius:12px; }
+.panel-group[hidden] { display:none; }
+.operation-group { border:2px solid #5b9bd5; background:#f3f8fd; }
+.setup-group { border:2px solid #8b7aa8; background:#f8f6fb; }
+.group-header { display:flex; gap:8px; align-items:center; justify-content:space-between; margin-bottom:10px; }
+.group-header h2 { margin:0; font-size:16px; }
+.setup-toggle-row { display:flex; gap:8px; align-items:center; justify-content:space-between; margin-bottom:16px; }
+.setup-toggle-row .secondary-button { margin-top:0; }
+.compact-safety-note { margin:8px 0 0; color:#664000; font-size:12px; line-height:1.4; }
+.panel-group .panel-section { margin-bottom:10px; padding:12px; }
+.panel-group .panel-section:last-child { margin-bottom:0; }
+.trigger-buttons { grid-template-columns:repeat(3,minmax(0,1fr)); }
+.section-description { display:none; }

@@ -15,6 +15,7 @@ const targetStatusText = $("targetStatusText");
 const locateButton=$("locateButton"),statusText=$("statusText"),statusBox=$("statusBox"),modeBadge=$("modeBadge"),locatorList=$("locatorList"),emptyState=$("emptyState"),itemCount=$("itemCount"),clearButton=$("clearButton"),testAllButton=$("testAllButton");
 
 const aimSelectButton = $("aimSelectButton");
+const focusAimButton = $("focusAimButton");
 const testAimButton = $("testAimButton");
 const clearAimButton = $("clearAimButton");
 const aimBadge = $("aimBadge");
@@ -38,6 +39,10 @@ const stopExecutionButton = $("stopExecutionButton");
 const executionBadge = $("executionBadge");
 const executionResult = $("executionResult");
 const executionStatusText = $("executionStatusText");
+const setupArea = $("setupArea");
+const toggleSetupButton = $("toggleSetupButton");
+const goToTargetButton = $("goToTargetButton");
+const setupGuideText = $("setupGuideText");
 
 const STORAGE_KEY="locatorProfiles",locatorItems=[];
 const AIM_STORAGE_KEY = "aimProfiles";
@@ -49,6 +54,8 @@ let selectedTarget = null;
 let selectedAim = null;
 let aimTestState = null;
 let isTestingAim = false;
+let isFocusingAim = false;
+let setupExpanded = true;
 let isAiming = false;
 let aimingTabId = null;
 let targetOperationInProgress = false;
@@ -269,6 +276,31 @@ aimSelectButton.addEventListener("click", async function () {
   } finally {
     updateAimControls();
   }
+});
+
+toggleSetupButton.addEventListener("click", function () { setSetupExpanded(!setupExpanded); });
+goToTargetButton.addEventListener("click", function () {
+  setSetupExpanded(true);
+  targetCurrentTabButton.scrollIntoView({ behavior: "smooth", block: "center" });
+  window.setTimeout(function () { targetCurrentTabButton.focus(); }, 300);
+});
+focusAimButton.addEventListener("click", async function () {
+  if (!selectedAim || isFocusingAim) return;
+  isFocusingAim = true; updateAimControls();
+  aimStatusText.textContent = "正在準備手動板機...";
+  try {
+    const tab = await getOperationalTargetTab();
+    await chrome.windows.update(tab.windowId,{focused:true});
+    await chrome.tabs.update(tab.id,{active:true});
+    await ensureContent(tab.id);
+    const response=await chrome.tabs.sendMessage(tab.id,{type:"PREPARE_MANUAL_TRIGGER",payload:{id:selectedAim.id,selector:selectedAim.selector,name:selectedAim.name}});
+    if(!response?.success||!response.result) throw new Error("未收到正確的手動板機結果。");
+    aimTestState=response.result; renderAimTestResult();
+    aimStatusText.textContent=response.result.status==="awaiting-user-focus"
+      ? "已找到準星，請在原網頁按「啟用鍵盤操作」，再使用 Enter 或 Space。"
+      : `手動板機結果：${response.result.status}`;
+  } catch(error){ showAimErrorWithMessage("無法啟動手動板機。",error); }
+  finally { isFocusingAim=false; updateAimControls(); }
 });
 
 testAimButton.addEventListener("click", async function () {
@@ -1034,6 +1066,11 @@ function renderAim() {
 
 function getAimTestSummary(result) {
   const messages = {
+    "awaiting-user-focus": "已找到準星，等待在原網頁啟用鍵盤操作。",
+    focused: "原網頁已取得焦點，準星可由使用者按 Enter 或 Space。",
+    "focus-failed": "已進入原網頁，但準星未能取得鍵盤焦點。",
+    "focus-timeout": "手動板機提示已逾時，未執行準星。",
+    cancelled: "已取消手動板機，未執行準星。",
     valid: "準星有效：Selector 唯一找到 1 個支援按鈕。",
     "not-found": "準星失效：目前頁面找不到該按鈕。",
     multiple: `準星不可靠：Selector 找到 ${result.matchCount} 個元素。`,
@@ -1062,10 +1099,11 @@ function renderAimTestResult() {
 function updateAimControls() {
   const targetReady = isTargetOperational();
 
-  aimSelectButton.disabled = !targetReady || isTestingAim;
+  aimSelectButton.disabled = !targetReady || isTestingAim || isFocusingAim;
+  focusAimButton.disabled = !targetReady || !selectedAim || isAiming || isTestingAim || isFocusingAim;
   testAimButton.disabled =
-    !targetReady || !selectedAim || isAiming || isTestingAim;
-  clearAimButton.disabled = isAiming || isTestingAim || !selectedAim;
+    !targetReady || !selectedAim || isAiming || isTestingAim || isFocusingAim;
+  clearAimButton.disabled = isAiming || isTestingAim || isFocusingAim || !selectedAim;
 
   if (!targetReady && !isAiming) {
     aimStatusText.textContent = "請先瞄準有效的目標分頁。";
@@ -1399,6 +1437,7 @@ function updateTargetBoundControls() {
   }
 
   updateAimControls();
+  updateSetupGuide();
 }
 
 function setTargetOperationState(inProgress) {
@@ -1699,20 +1738,13 @@ function renderExecutionPlan() {
   }
 
   executionPlan.appendChild(list);
+  updateExecutionControls();
 }
 
 async function executeValidatedPlan() {
   if (isExecutingPlan) return;
   if (!ammunitionValidationState || !ammunitionValidationState.valid) {
     executionStatusText.textContent = "請先通過執行前檢查。";
-    return;
-  }
-
-  const shouldExecute = window.confirm(
-    `確定要將 ${ammunitionValidationState.rows.length} 筆資料填入目標頁面嗎？本操作不會送出表單。`
-  );
-  if (!shouldExecute) {
-    executionStatusText.textContent = "已取消填值。";
     return;
   }
 
@@ -1843,6 +1875,7 @@ function updateExecutionControls() {
   clearTargetButton.disabled = executionLocked || targetOperationInProgress || !selectedTarget;
   locateButton.disabled = executionLocked || !isTargetOperational() || targetOperationInProgress;
   aimSelectButton.disabled = executionLocked || !isTargetOperational() || isTestingAim;
+  focusAimButton.disabled = executionLocked || !isTargetOperational() || !selectedAim || isAiming || isTestingAim || isFocusingAim;
   testAimButton.disabled = executionLocked || !isTargetOperational() || !selectedAim || isAiming || isTestingAim;
   clearAimButton.disabled = executionLocked || isAiming || isTestingAim || !selectedAim;
   addAmmunitionButton.disabled = executionLocked || isSavingAmmunition || ammunitionRows.length >= MAX_AMMUNITION_ROWS;
@@ -1850,7 +1883,9 @@ function updateExecutionControls() {
   validateAmmunitionButton.disabled = executionLocked || isSavingAmmunition || !isTargetOperational() || locatorItems.length === 0;
 
   ammunitionList.querySelectorAll("input, select, button").forEach(function (control) {
-    control.disabled = executionLocked || control.disabled;
+    if (executionLocked) { control.disabled = true; return; }
+    if (control.classList.contains("ammunition-delete-button")) { control.disabled = ammunitionRows.length === 1; return; }
+    control.disabled = false;
   });
 }
 
@@ -1981,7 +2016,20 @@ function updateAmmunitionControls() {
     isSavingAmmunition || !isTargetOperational() || locatorItems.length === 0;
 }
 
-async function initializeStageSeventeen() {
+function setSetupExpanded(expanded) {
+  setupExpanded = expanded;
+  setupArea.hidden = !expanded;
+  toggleSetupButton.textContent = expanded ? "收合設定區" : "展開設定區";
+  toggleSetupButton.setAttribute("aria-expanded", String(expanded));
+}
+function updateSetupGuide() {
+  const ready=isTargetOperational();
+  setupGuideText.textContent=ready?"目標已就緒，可收合設定區。":"尚未瞄準目標，請先前往設定區。";
+  goToTargetButton.hidden=ready;
+  if(!ready) setSetupExpanded(true);
+}
+
+async function initializeStageEighteenTwo() {
   renderExecutionPlan();
   renderExecutionResult();
   renderAim();
@@ -1989,6 +2037,6 @@ async function initializeStageSeventeen() {
   await init();
 }
 
-initializeStageSeventeen().catch(function (error) {
+initializeStageEighteenTwo().catch(function (error) {
   showError(error);
 });
