@@ -33,6 +33,8 @@
   let highlightBox = null;
   let tooltip = null;
   let selectionMessageTimer = null;
+  const completedExecutionIds = new Set();
+  const cancelledExecutionIds = new Set();
 
   function showConnectionMessage() {
     let messageBox =
@@ -988,6 +990,117 @@
     }, 3000);
   }
 
+  function setNativeInputValue(element, value) {
+    const prototype = element instanceof HTMLTextAreaElement
+      ? HTMLTextAreaElement.prototype
+      : HTMLInputElement.prototype;
+    const descriptor = Object.getOwnPropertyDescriptor(prototype, "value");
+
+    if (!descriptor || typeof descriptor.set !== "function") {
+      element.value = value;
+      return;
+    }
+
+    descriptor.set.call(element, value);
+  }
+
+  function fillFieldItem(item) {
+    const result = {
+      locatorId: item.locatorId,
+      locatorName: item.locatorName || item.locatorId,
+      status: "error",
+      matchCount: 0
+    };
+
+    let matches;
+    try {
+      matches = document.querySelectorAll(item.selector);
+    } catch (error) {
+      result.status = "invalid-selector";
+      return result;
+    }
+
+    result.matchCount = matches.length;
+    if (matches.length === 0) {
+      result.status = "not-found";
+      return result;
+    }
+    if (matches.length > 1) {
+      result.status = "multiple";
+      return result;
+    }
+
+    const element = matches[0];
+    if (!(element instanceof HTMLInputElement) && !(element instanceof HTMLTextAreaElement)) {
+      result.status = "unsupported";
+      return result;
+    }
+    if (!isSupportedInput(element)) {
+      result.status = element.disabled || element.readOnly ? "readonly" : "invisible";
+      return result;
+    }
+
+    try {
+      element.focus({ preventScroll: true });
+      setNativeInputValue(element, String(item.value ?? ""));
+      element.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+      element.dispatchEvent(new Event("change", { bubbles: true, composed: true }));
+
+      result.status = element.value === String(item.value ?? "")
+        ? "success"
+        : "mismatch";
+      return result;
+    } catch (error) {
+      result.status = "error";
+      result.message = error instanceof Error ? error.message : String(error);
+      return result;
+    }
+  }
+
+  function waitForExecutionTurn() {
+    return new Promise(function (resolve) {
+      window.setTimeout(resolve, 40);
+    });
+  }
+
+  async function fillFields(payload) {
+    const executionId = payload && typeof payload.executionId === "string"
+      ? payload.executionId
+      : "";
+    const items = payload && Array.isArray(payload.items) ? payload.items : [];
+    const stopOnFailure = !payload || payload.stopOnFailure !== false;
+    const results = [];
+    let stopped = false;
+
+    if (!executionId) {
+      return { success: false, completed: false, executionId: "", results: [], error: "missing-execution-id" };
+    }
+    if (completedExecutionIds.has(executionId)) {
+      return { success: false, completed: false, executionId: executionId, results: [], error: "duplicate-execution-id" };
+    }
+
+    completedExecutionIds.add(executionId);
+
+    for (const item of items) {
+      await waitForExecutionTurn();
+      if (cancelledExecutionIds.has(executionId) || stopped) {
+        results.push({ locatorId: item.locatorId, locatorName: item.locatorName || item.locatorId, status: "not-executed", matchCount: 0 });
+        continue;
+      }
+      const result = fillFieldItem(item);
+      results.push(result);
+      if (stopOnFailure && result.status !== "success") stopped = true;
+    }
+
+    cancelledExecutionIds.delete(executionId);
+    return {
+      success: true,
+      completed: results.length > 0 && results.every(function (result) { return result.status === "success"; }),
+      executionId: executionId,
+      results: results
+    };
+  }
+
   function startAimingMode() {
     if (isLocating) {
       stopLocatingMode();
@@ -1139,6 +1252,20 @@
         success: true,
         result: result
       });
+      return;
+    }
+
+    if (message.type === "FILL_FIELDS") {
+      fillFields(message.payload).then(sendResponse);
+      return true;
+    }
+
+    if (message.type === "STOP_FILLING") {
+      const executionId = message.payload && message.payload.executionId;
+      if (typeof executionId === "string" && executionId) {
+        cancelledExecutionIds.add(executionId);
+      }
+      sendResponse({ success: true, executionId: executionId || "" });
       return;
     }
 

@@ -488,3 +488,106 @@ display:none
   grid-template-columns: 1fr 1fr;
   gap: 8px;
 }
+
+
+/* 第 15 階段：保存、locatorId 配對與執行前檢查 */
+.ammunition-row {
+  grid-template-columns: 28px minmax(120px, 0.9fr) minmax(140px, 1.2fr) auto auto;
+}
+
+.ammunition-locator-select {
+  min-width: 0;
+  width: 100%;
+  padding: 8px 7px;
+  border: 1px solid #8a8886;
+  border-radius: 6px;
+  background-color: #ffffff;
+  color: #202124;
+  font: inherit;
+  font-size: 12px;
+}
+
+.ammunition-blank-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #5f6368;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.ammunition-buttons {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.execution-plan {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 7px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.execution-plan-valid {
+  border: 1px solid #107c10;
+  background-color: #f1faf1;
+  color: #0b5a0b;
+}
+
+.execution-plan-invalid {
+  border: 1px solid #c42b1c;
+  background-color: #fde7e9;
+  color: #a4262c;
+}
+
+.execution-plan ol {
+  margin: 7px 0 0;
+  padding-left: 22px;
+}
+
+#executionPlan[hidden] {
+  display: none;
+}
+
+
+/* 第 16 階段：安全填值與逐欄驗證 */
+.execution-result {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 7px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.execution-result-success {
+  border: 1px solid #107c10;
+  background-color: #f1faf1;
+  color: #0b5a0b;
+}
+
+.execution-result-failure {
+  border: 1px solid #c42b1c;
+  background-color: #fde7e9;
+  color: #a4262c;
+}
+
+.execution-result ol {
+  margin: 7px 0 0;
+  padding-left: 22px;
+}
+
+.execution-result p {
+  margin: 7px 0 0;
+}
+
+#executionResult[hidden] {
+  display: none;
+}
+
+
+/* 第 17 階段：執行鎖與停止控制 */
+.trigger-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}

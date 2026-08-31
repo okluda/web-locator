@@ -128,7 +128,7 @@
         <div>
           <h2 id="ammunitionHeading">填彈區</h2>
           <p class="section-description">
-            建立待填資料列。本階段只保存在目前 Side Panel 記憶體，不會填入網頁。
+            建立待填資料列。資料依目標頁面保存，並以 locatorId 配對定位及產生執行計畫。
           </p>
         </div>
         <span id="ammunitionCount" class="item-count">5 列</span>
@@ -147,9 +147,39 @@
         <button id="clearAmmunitionButton" class="secondary-button" type="button">
           清空全部內容
         </button>
+        <button id="validateAmmunitionButton" class="secondary-button" type="button" disabled>
+          執行前檢查
+        </button>
       </div>
 
+      <div id="executionPlan" class="execution-plan" hidden></div>
+
       <p id="ammunitionStatusText" class="inline-status" role="status" aria-live="polite"></p>
+    </section>
+
+    <section class="panel-section" aria-labelledby="triggerHeading">
+      <div class="section-heading">
+        <div>
+          <h2 id="triggerHeading">板機區</h2>
+          <p class="section-description">
+            依已通過的執行計畫逐欄填值並讀回驗證，不會點擊準星或送出表單。
+          </p>
+        </div>
+        <span id="executionBadge" class="status-badge status-idle">待命</span>
+      </div>
+
+      <div class="trigger-buttons">
+        <button id="executePlanButton" class="primary-button" type="button" disabled>
+          執行安全填值
+        </button>
+        <button id="stopExecutionButton" class="secondary-button danger-button" type="button" disabled>
+          停止執行
+        </button>
+      </div>
+
+      <div id="executionResult" class="execution-result" hidden></div>
+
+      <p id="executionStatusText" class="inline-status" role="status" aria-live="polite"></p>
     </section>
 
     <section class="panel-section" aria-labelledby="listHeading">
@@ -175,7 +205,7 @@
       </div>
     </section>
 
-    <footer class="app-footer">第 14 階段 0.14.0</footer>
+    <footer class="app-footer">第 17 階段 0.17.0</footer>
   </main>
   <script src="sidepanel.js"></script>
 </body>

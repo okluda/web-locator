@@ -30,10 +30,18 @@ const ammunitionList = $("ammunitionList");
 const ammunitionCount = $("ammunitionCount");
 const addAmmunitionButton = $("addAmmunitionButton");
 const clearAmmunitionButton = $("clearAmmunitionButton");
+const validateAmmunitionButton = $("validateAmmunitionButton");
 const ammunitionStatusText = $("ammunitionStatusText");
+const executionPlan = $("executionPlan");
+const executePlanButton = $("executePlanButton");
+const stopExecutionButton = $("stopExecutionButton");
+const executionBadge = $("executionBadge");
+const executionResult = $("executionResult");
+const executionStatusText = $("executionStatusText");
 
 const STORAGE_KEY="locatorProfiles",locatorItems=[];
 const AIM_STORAGE_KEY = "aimProfiles";
+const AMMUNITION_STORAGE_KEY = "ammunitionProfiles";
 
 let isLocating=false,connectedTabId=null,currentPageKey=null,currentPageTitle="",isSaving=false,testResults=new Map();
 
@@ -49,6 +57,13 @@ const DEFAULT_AMMUNITION_ROWS = 5;
 const MAX_AMMUNITION_ROWS = 50;
 const ammunitionRows = [];
 let nextAmmunitionRowId = 1;
+let ammunitionSaveTimer = null;
+let isSavingAmmunition = false;
+let ammunitionValidationState = null;
+let executionState = null;
+let isExecutingPlan = false;
+let currentExecutionId = null;
+let stopExecutionRequested = false;
 
 let panelPort = null;
 
@@ -339,7 +354,9 @@ addAmmunitionButton.addEventListener("click", function () {
   }
 
   ammunitionRows.push(createAmmunitionRow());
+  ammunitionValidationState = null;
   renderAmmunitionRows();
+  scheduleAmmunitionSave();
   ammunitionStatusText.textContent =
     `已新增第 ${ammunitionRows.length} 列。`;
 });
@@ -366,8 +383,39 @@ clearAmmunitionButton.addEventListener("click", function () {
     row.value = "";
   });
 
+  ammunitionValidationState = null;
   renderAmmunitionRows();
-  ammunitionStatusText.textContent = "已清空全部填彈內容，資料列仍保留。";
+  scheduleAmmunitionSave();
+  ammunitionStatusText.textContent = "已清空全部填彈內容，正在保存。";
+});
+
+stopExecutionButton.addEventListener("click", async function () {
+  if (!isExecutingPlan || !currentExecutionId || !selectedTarget) {
+    return;
+  }
+
+  stopExecutionRequested = true;
+  stopExecutionButton.disabled = true;
+  executionStatusText.textContent = "正在停止尚未執行的欄位...";
+
+  try {
+    await chrome.tabs.sendMessage(selectedTarget.tabId, {
+      type: "STOP_FILLING",
+      payload: {
+        executionId: currentExecutionId
+      }
+    });
+  } catch (error) {
+    console.warn("停止填值訊息傳送失敗：", error);
+  }
+});
+
+executePlanButton.addEventListener("click", async function () {
+  await executeValidatedPlan();
+});
+
+validateAmmunitionButton.addEventListener("click", async function () {
+  await validateAmmunitionPlan();
 });
 
 locateButton.addEventListener("click",async()=> {
@@ -506,6 +554,7 @@ async function switchToTargetContext() {
 
   await load();
   await loadCurrentAim();
+  await loadCurrentAmmunition();
   await syncStatus(targetTab);
   updateTargetBoundControls();
 }
@@ -522,6 +571,9 @@ function clearTargetContextView() {
   aimingTabId = null;
   connectedTabId = null;
   isLocating = false;
+  executionState = null;
+  isExecutingPlan = false;
+  renderExecutionResult();
   idle();
   render();
   renderAim();
@@ -977,6 +1029,7 @@ function renderAim() {
 
   renderAimTestResult();
   updateAimControls();
+  updateExecutionControls();
 }
 
 function getAimTestSummary(result) {
@@ -1219,6 +1272,16 @@ function handleTargetStatusChanged(payload) {
     ? payload.reason
     : "unknown";
 
+  if (isExecutingPlan && reason !== "active" && reason !== "selected") {
+    stopExecutionRequested = true;
+    if (currentExecutionId && selectedTarget) {
+      chrome.tabs.sendMessage(selectedTarget.tabId, {
+        type: "STOP_FILLING",
+        payload: { executionId: currentExecutionId }
+      }).catch(function () {});
+    }
+  }
+
   selectedTarget = payload && payload.target
     ? payload.target
     : null;
@@ -1362,7 +1425,9 @@ function showTargetError(error) {
 function createAmmunitionRow() {
   const row = {
     id: `ammunition-row-${nextAmmunitionRowId}`,
-    value: ""
+    locatorId: "",
+    value: "",
+    intentionalBlank: false
   };
 
   nextAmmunitionRowId += 1;
@@ -1383,6 +1448,412 @@ function initializeAmmunitionRows() {
     "已建立 5 列暫存資料。關閉 Side Panel 後不會保留。";
 }
 
+async function loadCurrentAmmunition() {
+  if (!currentPageKey) {
+    resetAmmunitionRows();
+    return;
+  }
+
+  const result = await chrome.storage.local.get(AMMUNITION_STORAGE_KEY);
+  const profiles = plain(result[AMMUNITION_STORAGE_KEY])
+    ? result[AMMUNITION_STORAGE_KEY]
+    : {};
+  const profile = profiles[currentPageKey];
+
+  ammunitionRows.length = 0;
+  ammunitionValidationState = null;
+
+  if (profile && Array.isArray(profile.rows) && profile.rows.length > 0) {
+    profile.rows.forEach(function (savedRow) {
+      const row = createAmmunitionRow();
+      row.locatorId = typeof savedRow.locatorId === "string"
+        ? savedRow.locatorId
+        : "";
+      row.value = typeof savedRow.value === "string"
+        ? savedRow.value
+        : "";
+      row.intentionalBlank = savedRow.intentionalBlank === true;
+      ammunitionRows.push(row);
+    });
+  } else {
+    for (let index = 0; index < DEFAULT_AMMUNITION_ROWS; index += 1) {
+      ammunitionRows.push(createAmmunitionRow());
+    }
+  }
+
+  renderAmmunitionRows();
+  ammunitionStatusText.textContent = profile
+    ? `已恢復 ${ammunitionRows.length} 列填彈資料。`
+    : "目前頁面尚無已保存的填彈資料。";
+}
+
+function resetAmmunitionRows() {
+  ammunitionRows.length = 0;
+  ammunitionValidationState = null;
+
+  for (let index = 0; index < DEFAULT_AMMUNITION_ROWS; index += 1) {
+    ammunitionRows.push(createAmmunitionRow());
+  }
+
+  renderAmmunitionRows();
+}
+
+function scheduleAmmunitionSave() {
+  ammunitionValidationState = null;
+  executionState = null;
+  renderExecutionPlan();
+  renderExecutionResult();
+
+  if (!currentPageKey) {
+    ammunitionStatusText.textContent = "請先瞄準目標頁面，才能保存填彈資料。";
+    return;
+  }
+
+  if (ammunitionSaveTimer) {
+    window.clearTimeout(ammunitionSaveTimer);
+  }
+
+  ammunitionSaveTimer = window.setTimeout(function () {
+    saveCurrentAmmunition().catch(function (error) {
+      ammunitionStatusText.textContent = "填彈資料保存失敗，請重試。";
+      console.error("填彈資料保存錯誤：", error);
+    });
+  }, 400);
+}
+
+async function saveCurrentAmmunition() {
+  if (!currentPageKey || isSavingAmmunition) {
+    return;
+  }
+
+  isSavingAmmunition = true;
+  updateAmmunitionControls();
+
+  try {
+    const result = await chrome.storage.local.get(AMMUNITION_STORAGE_KEY);
+    const profiles = plain(result[AMMUNITION_STORAGE_KEY])
+      ? result[AMMUNITION_STORAGE_KEY]
+      : {};
+
+    profiles[currentPageKey] = {
+      pageKey: currentPageKey,
+      pageTitle: currentPageTitle,
+      rows: ammunitionRows.map(function (row) {
+        return {
+          locatorId: row.locatorId,
+          value: row.value,
+          intentionalBlank: row.intentionalBlank
+        };
+      }),
+      updatedAt: new Date().toISOString()
+    };
+
+    const storageData = {};
+    storageData[AMMUNITION_STORAGE_KEY] = profiles;
+    await chrome.storage.local.set(storageData);
+    ammunitionStatusText.textContent = "填彈資料已保存。";
+  } finally {
+    isSavingAmmunition = false;
+    updateAmmunitionControls();
+  }
+}
+
+async function validateAmmunitionPlan() {
+  if (!isTargetOperational()) {
+    ammunitionStatusText.textContent = "請先瞄準有效的目標分頁。";
+    return;
+  }
+
+  await saveCurrentAmmunition();
+
+  const issues = [];
+  const usedLocatorIds = new Set();
+  const planRows = [];
+
+  ammunitionRows.forEach(function (row, index) {
+    const locator = locatorItems.find(function (item) {
+      return item.id === row.locatorId;
+    });
+
+    if (!row.locatorId || !locator) {
+      issues.push(`第 ${index + 1} 列尚未配對有效定位。`);
+      return;
+    }
+
+    if (usedLocatorIds.has(row.locatorId)) {
+      issues.push(`第 ${index + 1} 列重複配對「${locator.name}」。`);
+      return;
+    }
+
+    usedLocatorIds.add(row.locatorId);
+
+    if (row.value === "" && !row.intentionalBlank) {
+      issues.push(`第 ${index + 1} 列尚未輸入資料，也未標示故意留空。`);
+      return;
+    }
+
+    planRows.push({
+      rowNumber: index + 1,
+      locator: locator,
+      value: row.value,
+      intentionalBlank: row.intentionalBlank
+    });
+  });
+
+  if (issues.length === 0 && planRows.length !== locatorItems.length) {
+    issues.push(
+      `已配對 ${planRows.length} 列，但定位清單有 ${locatorItems.length} 筆。`
+    );
+  }
+
+  if (issues.length > 0) {
+    ammunitionValidationState = {
+      valid: false,
+      issues: issues,
+      rows: planRows
+    };
+    renderExecutionPlan();
+    ammunitionStatusText.textContent = `執行前檢查未通過，共 ${issues.length} 項問題。`;
+    return;
+  }
+
+  const targetTab = await getOperationalTargetTab();
+  await ensureContent(targetTab.id);
+
+  const response = await chrome.tabs.sendMessage(targetTab.id, {
+    type: "TEST_LOCATORS",
+    payload: planRows.map(function (planRow) {
+      return {
+        id: planRow.locator.id,
+        selector: planRow.locator.selector
+      };
+    })
+  });
+
+  const selectorIssues = [];
+
+  if (!response || response.success !== true || !Array.isArray(response.results)) {
+    selectorIssues.push("未收到目標頁面的定位預檢結果。");
+  } else {
+    response.results.forEach(function (result) {
+      if (result.status !== "valid") {
+        const locator = locatorItems.find(function (item) {
+          return item.id === result.id;
+        });
+        selectorIssues.push(
+          `定位「${locator ? locator.name : result.id}」狀態為 ${result.status}。`
+        );
+      }
+    });
+  }
+
+  ammunitionValidationState = {
+    valid: selectorIssues.length === 0,
+    issues: selectorIssues,
+    rows: planRows
+  };
+  renderExecutionPlan();
+  ammunitionStatusText.textContent = selectorIssues.length === 0
+    ? "執行前檢查通過。此階段只產生計畫，不會填入網頁。"
+    : `Selector 預檢未通過，共 ${selectorIssues.length} 項問題。`;
+}
+
+function renderExecutionPlan() {
+  executionPlan.replaceChildren();
+
+  if (!ammunitionValidationState) {
+    executionPlan.hidden = true;
+    updateExecutionControls();
+    return;
+  }
+
+  executionPlan.hidden = false;
+  executionPlan.className = ammunitionValidationState.valid
+    ? "execution-plan execution-plan-valid"
+    : "execution-plan execution-plan-invalid";
+
+  const heading = document.createElement("strong");
+  heading.textContent = ammunitionValidationState.valid
+    ? "安全執行計畫預覽"
+    : "執行前檢查問題";
+  executionPlan.appendChild(heading);
+
+  const list = document.createElement("ol");
+
+  if (ammunitionValidationState.valid) {
+    ammunitionValidationState.rows.forEach(function (planRow) {
+      const item = document.createElement("li");
+      const valueDescription = planRow.intentionalBlank
+        ? "故意留空"
+        : `已輸入 ${planRow.value.length} 個字元`;
+      item.textContent =
+        `${planRow.locator.name}：${valueDescription}`;
+      list.appendChild(item);
+    });
+  } else {
+    ammunitionValidationState.issues.forEach(function (issue) {
+      const item = document.createElement("li");
+      item.textContent = issue;
+      list.appendChild(item);
+    });
+  }
+
+  executionPlan.appendChild(list);
+}
+
+async function executeValidatedPlan() {
+  if (isExecutingPlan) return;
+  if (!ammunitionValidationState || !ammunitionValidationState.valid) {
+    executionStatusText.textContent = "請先通過執行前檢查。";
+    return;
+  }
+
+  const shouldExecute = window.confirm(
+    `確定要將 ${ammunitionValidationState.rows.length} 筆資料填入目標頁面嗎？本操作不會送出表單。`
+  );
+  if (!shouldExecute) {
+    executionStatusText.textContent = "已取消填值。";
+    return;
+  }
+
+  const targetTab = await getOperationalTargetTab();
+  currentExecutionId = globalThis.crypto.randomUUID();
+  stopExecutionRequested = false;
+  isExecutingPlan = true;
+  executionState = null;
+  renderExecutionResult();
+  updateExecutionControls();
+  executionBadge.textContent = "執行中";
+  executionBadge.className = "status-badge status-pending";
+  executionStatusText.textContent = `執行 ID：${currentExecutionId}，正在逐欄填值...`;
+
+  try {
+    await ensureContent(targetTab.id);
+    const response = await chrome.tabs.sendMessage(targetTab.id, {
+      type: "FILL_FIELDS",
+      payload: {
+        executionId: currentExecutionId,
+        pageKey: selectedTarget.pageKey,
+        stopOnFailure: true,
+        items: ammunitionValidationState.rows.map(function (planRow) {
+          return {
+            locatorId: planRow.locator.id,
+            locatorName: planRow.locator.name,
+            selector: planRow.locator.selector,
+            value: planRow.intentionalBlank ? "" : planRow.value
+          };
+        })
+      }
+    });
+
+    if (!response || response.success !== true || !Array.isArray(response.results)) {
+      throw new Error("目標頁面未回傳正確的填值結果。");
+    }
+
+    executionState = response;
+    renderExecutionResult();
+    const successCount = response.results.filter(function (result) {
+      return result.status === "success";
+    }).length;
+    const failureCount = response.results.filter(function (result) {
+      return result.status !== "success" && result.status !== "not-executed";
+    }).length;
+    const skippedCount = response.results.filter(function (result) {
+      return result.status === "not-executed";
+    }).length;
+
+    executionStatusText.textContent = response.completed
+      ? `執行完成：成功 ${successCount}、失敗 ${failureCount}、未執行 ${skippedCount}。請人工確認後自行送出。`
+      : `執行中止：成功 ${successCount}、失敗 ${failureCount}、未執行 ${skippedCount}。`;
+  } catch (error) {
+    executionState = {
+      success: true,
+      completed: false,
+      executionId: currentExecutionId,
+      results: [],
+      error: error instanceof Error ? error.message : String(error)
+    };
+    renderExecutionResult();
+    executionStatusText.textContent = executionState.error;
+  } finally {
+    isExecutingPlan = false;
+    stopExecutionRequested = false;
+    executionBadge.textContent = "待命";
+    executionBadge.className = "status-badge status-idle";
+    currentExecutionId = null;
+    updateExecutionControls();
+  }
+}
+
+function getFillResultText(result) {
+  const messages = {
+    success: "成功：已寫入並讀回一致",
+    "not-found": "失敗：找不到元素",
+    multiple: `失敗：Selector 匹配 ${result.matchCount} 個元素`,
+    unsupported: "失敗：不是支援的文字欄位",
+    readonly: "失敗：欄位為唯讀或停用",
+    invisible: "失敗：欄位不可見",
+    mismatch: "失敗：寫入後讀回值不一致",
+    "invalid-selector": "失敗：Selector 格式錯誤",
+    "not-executed": "未執行：前一筆已失敗",
+    error: `失敗：${result.message || "未知錯誤"}`
+  };
+  return messages[result.status] || `未知狀態：${result.status}`;
+}
+
+function renderExecutionResult() {
+  executionResult.replaceChildren();
+  if (!executionState) {
+    executionResult.hidden = true;
+    return;
+  }
+  executionResult.hidden = false;
+  executionResult.className = executionState.completed
+    ? "execution-result execution-result-success"
+    : "execution-result execution-result-failure";
+  const heading = document.createElement("strong");
+  heading.textContent = executionState.completed ? "填值結果" : "填值未完成";
+  executionResult.appendChild(heading);
+  if (executionState.error) {
+    const errorText = document.createElement("p");
+    errorText.textContent = executionState.error;
+    executionResult.appendChild(errorText);
+  }
+  const list = document.createElement("ol");
+  (executionState.results || []).forEach(function (result) {
+    const item = document.createElement("li");
+    item.textContent = `${result.locatorName || result.locatorId}：${getFillResultText(result)}`;
+    list.appendChild(item);
+  });
+  executionResult.appendChild(list);
+}
+
+function updateExecutionControls() {
+  const executionLocked = isExecutingPlan;
+
+  executePlanButton.disabled =
+    executionLocked ||
+    !isTargetOperational() ||
+    !ammunitionValidationState ||
+    !ammunitionValidationState.valid;
+  stopExecutionButton.disabled =
+    !executionLocked || stopExecutionRequested;
+
+  targetCurrentTabButton.disabled = executionLocked || targetOperationInProgress;
+  clearTargetButton.disabled = executionLocked || targetOperationInProgress || !selectedTarget;
+  locateButton.disabled = executionLocked || !isTargetOperational() || targetOperationInProgress;
+  aimSelectButton.disabled = executionLocked || !isTargetOperational() || isTestingAim;
+  testAimButton.disabled = executionLocked || !isTargetOperational() || !selectedAim || isAiming || isTestingAim;
+  clearAimButton.disabled = executionLocked || isAiming || isTestingAim || !selectedAim;
+  addAmmunitionButton.disabled = executionLocked || isSavingAmmunition || ammunitionRows.length >= MAX_AMMUNITION_ROWS;
+  clearAmmunitionButton.disabled = executionLocked || isSavingAmmunition || !ammunitionRows.some(function (row) { return row.value !== ""; });
+  validateAmmunitionButton.disabled = executionLocked || isSavingAmmunition || !isTargetOperational() || locatorItems.length === 0;
+
+  ammunitionList.querySelectorAll("input, select, button").forEach(function (control) {
+    control.disabled = executionLocked || control.disabled;
+  });
+}
+
 function renderAmmunitionRows() {
   ammunitionList.replaceChildren();
 
@@ -1393,6 +1864,28 @@ function renderAmmunitionRows() {
     const sequence = document.createElement("span");
     sequence.className = "ammunition-sequence";
     sequence.textContent = String(index + 1);
+
+    const locatorSelect = document.createElement("select");
+    locatorSelect.className = "ammunition-locator-select";
+    locatorSelect.setAttribute("aria-label", `第 ${index + 1} 列配對定位`);
+
+    const emptyOption = document.createElement("option");
+    emptyOption.value = "";
+    emptyOption.textContent = "請選擇定位";
+    locatorSelect.appendChild(emptyOption);
+
+    locatorItems.forEach(function (locator) {
+      const option = document.createElement("option");
+      option.value = locator.id;
+      option.textContent = locator.name;
+      option.selected = locator.id === row.locatorId;
+      locatorSelect.appendChild(option);
+    });
+
+    locatorSelect.addEventListener("change", function (event) {
+      row.locatorId = event.target.value;
+      scheduleAmmunitionSave();
+    });
 
     const input = document.createElement("input");
     input.className = "ammunition-input";
@@ -1409,8 +1902,22 @@ function renderAmmunitionRows() {
 
     input.addEventListener("input", function (event) {
       row.value = event.target.value;
+      scheduleAmmunitionSave();
       updateAmmunitionControls();
     });
+
+    const blankLabel = document.createElement("label");
+    blankLabel.className = "ammunition-blank-label";
+
+    const blankCheckbox = document.createElement("input");
+    blankCheckbox.type = "checkbox";
+    blankCheckbox.checked = row.intentionalBlank;
+    blankCheckbox.addEventListener("change", function (event) {
+      row.intentionalBlank = event.target.checked;
+      scheduleAmmunitionSave();
+    });
+
+    blankLabel.append(blankCheckbox, document.createTextNode("故意留空"));
 
     const deleteButton = document.createElement("button");
     deleteButton.className = "ammunition-delete-button";
@@ -1426,7 +1933,13 @@ function renderAmmunitionRows() {
       deleteAmmunitionRow(row.id);
     });
 
-    rowElement.append(sequence, input, deleteButton);
+    rowElement.append(
+      sequence,
+      locatorSelect,
+      input,
+      blankLabel,
+      deleteButton
+    );
     ammunitionList.appendChild(rowElement);
   });
 
@@ -1449,7 +1962,9 @@ function deleteAmmunitionRow(rowId) {
   }
 
   ammunitionRows.splice(rowIndex, 1);
+  ammunitionValidationState = null;
   renderAmmunitionRows();
+  scheduleAmmunitionSave();
   ammunitionStatusText.textContent =
     `已刪除資料列，目前共 ${ammunitionRows.length} 列。`;
 }
@@ -1460,17 +1975,20 @@ function updateAmmunitionControls() {
   });
 
   addAmmunitionButton.disabled =
-    ammunitionRows.length >= MAX_AMMUNITION_ROWS;
-  clearAmmunitionButton.disabled = !hasContent;
+    isSavingAmmunition || ammunitionRows.length >= MAX_AMMUNITION_ROWS;
+  clearAmmunitionButton.disabled = isSavingAmmunition || !hasContent;
+  validateAmmunitionButton.disabled =
+    isSavingAmmunition || !isTargetOperational() || locatorItems.length === 0;
 }
 
-async function initializeStageFourteen() {
-  initializeAmmunitionRows();
+async function initializeStageSeventeen() {
+  renderExecutionPlan();
+  renderExecutionResult();
   renderAim();
   await loadSelectedTarget();
   await init();
 }
 
-initializeStageFourteen().catch(function (error) {
+initializeStageSeventeen().catch(function (error) {
   showError(error);
 });
