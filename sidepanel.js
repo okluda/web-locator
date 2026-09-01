@@ -287,15 +287,11 @@ goToTargetButton.addEventListener("click", function () {
 focusAimButton.addEventListener("click", async function () {
   if (!selectedAim || isFocusingAim) return;
   isFocusingAim = true; updateAimControls();
-  aimStatusText.textContent = "正在執行填彈資料並準備手動板機...";
+  aimStatusText.textContent = "正在填入資料，完成後跳轉準星...";
   try {
-    if (!ammunitionValidationState || !ammunitionValidationState.valid) {
-      throw new Error("請先完成並通過執行前檢查。");
-    }
+    if(!ammunitionValidationState||!ammunitionValidationState.valid) throw new Error("請先完成並通過執行前檢查。");
     await executeValidatedPlan();
-    if (!executionState || executionState.completed !== true) {
-      throw new Error("填彈資料未全部完成，已取消手動板機跳轉。");
-    }
+    if(!executionState||executionState.completed!==true) throw new Error("資料未全部完成，已取消準星跳轉。");
     const tab = await getOperationalTargetTab();
     await chrome.windows.update(tab.windowId,{focused:true});
     await chrome.tabs.update(tab.id,{active:true});
@@ -303,8 +299,8 @@ focusAimButton.addEventListener("click", async function () {
     const response=await chrome.tabs.sendMessage(tab.id,{type:"PREPARE_MANUAL_TRIGGER",payload:{id:selectedAim.id,selector:selectedAim.selector,name:selectedAim.name}});
     if(!response?.success||!response.result) throw new Error("未收到正確的手動板機結果。");
     aimTestState=response.result; renderAimTestResult();
-    aimStatusText.textContent=response.result.status==="awaiting-user-focus"
-      ? "已找到準星，請在原網頁按「啟用鍵盤操作」，或按 F6 切換焦點，再使用 Enter 或 Space。"
+    aimStatusText.textContent=response.result.status==="awaiting-f6"
+      ? "已跳到準星。請按 F6 切換到原網頁，再使用 Tab、Enter 或 Space。"
       : `手動板機結果：${response.result.status}`;
   } catch(error){ showAimErrorWithMessage("無法啟動手動板機。",error); }
   finally { isFocusingAim=false; updateAimControls(); }
@@ -1073,7 +1069,7 @@ function renderAim() {
 
 function getAimTestSummary(result) {
   const messages = {
-    "awaiting-user-focus": "已找到準星，等待在原網頁啟用鍵盤操作。",
+    "awaiting-f6": "已跳到準星，請按 F6 切換到原網頁。",
     focused: "原網頁已取得焦點，準星可由使用者按 Enter 或 Space。",
     "focus-failed": "已進入原網頁，但準星未能取得鍵盤焦點。",
     "focus-timeout": "手動板機提示已逾時，未執行準星。",
@@ -1634,17 +1630,9 @@ async function validateAmmunitionPlan() {
 
     usedLocatorIds.add(row.locatorId);
 
-    const isQuantityButton = locator.actionType === "increment" || locator.actionType === "decrement";
-    if (isQuantityButton) {
-      const count = Number(row.value);
-      if (!Number.isInteger(count) || count < 0 || count > 50) {
-        issues.push(`第 ${index + 1} 列的觸發次數必須是 0 至 50 的整數。`);
-        return;
-      }
-    } else if (row.value === "" && !row.intentionalBlank) {
-      issues.push(`第 ${index + 1} 列尚未輸入資料，也未標示故意留空。`);
-      return;
-    }
+    const isQuantityButton=["increment","decrement"].includes(locator.actionType);
+    if(isQuantityButton){ const count=Number(row.value); if(!Number.isInteger(count)||count<0||count>50){issues.push(`第 ${index + 1} 列的觸發次數必須是 0 至 50 的整數。`);return;} }
+    else if(row.value===""&&!row.intentionalBlank){issues.push(`第 ${index + 1} 列尚未輸入資料，也未標示故意留空。`);return;}
 
     planRows.push({
       rowNumber: index + 1,
@@ -1738,10 +1726,8 @@ function renderExecutionPlan() {
   if (ammunitionValidationState.valid) {
     ammunitionValidationState.rows.forEach(function (planRow) {
       const item = document.createElement("li");
-      const isQuantityButton = planRow.locator.actionType === "increment" || planRow.locator.actionType === "decrement";
-      const valueDescription = isQuantityButton
-        ? `${planRow.locator.actionType === "increment" ? "增加" : "減少"} ${Number(planRow.value)} 次`
-        : planRow.intentionalBlank ? "故意留空" : `已輸入 ${planRow.value.length} 個字元`;
+      const isQuantityButton=["increment","decrement"].includes(planRow.locator.actionType);
+      const valueDescription=isQuantityButton ? `${planRow.locator.actionType==="increment"?"增加":"減少"} ${Number(planRow.value)} 次` : planRow.intentionalBlank?"故意留空":`已輸入 ${planRow.value.length} 個字元`;
       item.textContent =
         `${planRow.locator.name}：${valueDescription}`;
       list.appendChild(item);
@@ -1940,21 +1926,13 @@ function renderAmmunitionRows() {
     });
 
     locatorSelect.addEventListener("change", function (event) {
-      row.locatorId = event.target.value;
-      const nextLocator = locatorItems.find(item => item.id === row.locatorId);
-      row.intentionalBlank = false;
-      if (nextLocator && nextLocator.actionType !== "input" && row.value === "") row.value = "1";
-      renderAmmunitionRows();
-      scheduleAmmunitionSave();
+      row.locatorId=event.target.value; const nextLocator=locatorItems.find(item=>item.id===row.locatorId); row.intentionalBlank=false; if(nextLocator&&nextLocator.actionType!=="input"&&row.value==="")row.value="1"; renderAmmunitionRows(); scheduleAmmunitionSave();
     });
 
     const input = document.createElement("input");
     input.className = "ammunition-input";
-    const selectedLocator = locatorItems.find(item => item.id === row.locatorId);
-    const isQuantityButton = selectedLocator && selectedLocator.actionType !== "input";
-    input.type = isQuantityButton ? "number" : "text";
-    if (isQuantityButton) { input.min="0"; input.max="50"; input.step="1"; }
-    input.value = row.value;
+    const selectedLocator=locatorItems.find(item=>item.id===row.locatorId); const isQuantityButton=selectedLocator&&selectedLocator.actionType!=="input";
+    input.type=isQuantityButton?"number":"text"; if(isQuantityButton){input.min="0";input.max="50";input.step="1";} input.value=row.value;
     input.autocomplete = "off";
     input.spellcheck = false;
     input.maxLength = 500;
@@ -1962,7 +1940,7 @@ function renderAmmunitionRows() {
       "aria-label",
       `第 ${index + 1} 列待填資料`
     );
-    input.placeholder = isQuantityButton ? "觸發次數（0-50）" : `第 ${index + 1} 列資料`;
+    input.placeholder=isQuantityButton?"觸發次數（0-50）":`第 ${index + 1} 列資料`;
 
     input.addEventListener("input", function (event) {
       row.value = event.target.value;
@@ -1975,9 +1953,7 @@ function renderAmmunitionRows() {
 
     const blankCheckbox = document.createElement("input");
     blankCheckbox.type = "checkbox";
-    blankCheckbox.checked = row.intentionalBlank;
-    blankCheckbox.disabled = Boolean(isQuantityButton);
-    blankLabel.hidden = Boolean(isQuantityButton);
+    blankCheckbox.checked=row.intentionalBlank; blankCheckbox.disabled=Boolean(isQuantityButton); blankLabel.hidden=Boolean(isQuantityButton);
     blankCheckbox.addEventListener("change", function (event) {
       row.intentionalBlank = event.target.checked;
       scheduleAmmunitionSave();
@@ -2060,7 +2036,7 @@ function updateSetupGuide() {
   if(!ready) setSetupExpanded(true);
 }
 
-async function initializeStageEighteenFour() {
+async function initializeStageEighteenFive() {
   renderExecutionPlan();
   renderExecutionResult();
   renderAim();
@@ -2068,6 +2044,6 @@ async function initializeStageEighteenFour() {
   await init();
 }
 
-initializeStageEighteenFour().catch(function (error) {
+initializeStageEighteenFive().catch(function (error) {
   showError(error);
 });
