@@ -176,25 +176,17 @@
   function getQuantityAction(element) {
     if (!(element instanceof HTMLButtonElement)) return null;
     if (element.disabled || !isElementVisible(element) || isExtensionElement(element)) return null;
-    const type = (element.getAttribute("type") || "button").toLowerCase();
-    if (type !== "button") return null;
-    const tokens = [
-      element.getAttribute("aria-label") || "",
-      element.getAttribute("title") || "",
-      element.textContent || "",
-      element.className || "",
-      Array.from(element.querySelectorAll("i, span")).map(node => node.className || "").join(" ")
-    ].join(" ").toLowerCase();
-    if (/mdi-plus|fa-plus|icon-plus|\bplus\b|增加|新增|加號/.test(tokens) || tokens.trim() === "+") return "increment";
-    if (/mdi-minus|fa-minus|icon-minus|\bminus\b|減少|刪減|減號/.test(tokens) || tokens.trim() === "-") return "decrement";
+    if ((element.getAttribute("type") || "button").toLowerCase() !== "button") return null;
+    const signature = [element.getAttribute("aria-label") || "", element.getAttribute("title") || "", element.textContent || "", element.className || "", Array.from(element.querySelectorAll("i, span")).map(node => node.className || "").join(" ")].join(" ").toLowerCase();
+    if (/mdi-plus|fa-plus|icon-plus|\bplus\b|增加|新增|加號/.test(signature) || signature.trim() === "+") return "increment";
+    if (/mdi-minus|fa-minus|icon-minus|\bminus\b|減少|刪減|減號/.test(signature) || signature.trim() === "-") return "decrement";
     return null;
   }
-
   function findLocatableElement(startElement) {
     if (!(startElement instanceof Element)) return null;
-    const field = startElement.closest("input, textarea");
+    const field=startElement.closest("input, textarea");
     if (field && isSupportedInput(field)) return field;
-    const button = startElement.closest("button");
+    const button=startElement.closest("button");
     return button && getQuantityAction(button) ? button : null;
   }
 
@@ -285,11 +277,8 @@
   }
 
   function getElementName(element) {
-    const quantityAction = getQuantityAction(element);
-    if (quantityAction) {
-      const label = cleanText(element.getAttribute("aria-label") || element.getAttribute("title") || "");
-      return label || (quantityAction === "increment" ? "增加數量按鈕" : "減少數量按鈕");
-    }
+    const quantityAction=getQuantityAction(element);
+    if (quantityAction) return cleanText(element.getAttribute("aria-label") || element.getAttribute("title") || "") || (quantityAction === "increment" ? "增加數量按鈕" : "減少數量按鈕");
     const labelText = getAssociatedLabel(element);
 
     if (labelText) {
@@ -531,7 +520,7 @@
   }
 
   function getElementTypeName(element) {
-    const quantityAction = getQuantityAction(element);
+    const quantityAction=getQuantityAction(element);
     if (quantityAction) return quantityAction === "increment" ? "增加數量按鈕" : "減少數量按鈕";
     if (element instanceof HTMLTextAreaElement) {
       return "多行文字框";
@@ -567,10 +556,7 @@
       return;
     }
 
-    if (!isSupportedInput(currentTarget) && !getQuantityAction(currentTarget)) {
-      hideHighlight();
-      return;
-    }
+    if (!isSupportedInput(currentTarget) && !getQuantityAction(currentTarget)) { hideHighlight(); return; }
 
     createHighlightElements();
 
@@ -751,21 +737,12 @@
   }
 
   function testSelector(item) {
-    const result = { id: item.id, status: "not-found", matchCount: 0 };
-    let matches;
-    try { matches = document.querySelectorAll(item.selector); }
-    catch { result.status = "invalid-selector"; return result; }
-    result.matchCount = matches.length;
-    if (!matches.length) return result;
-    if (matches.length > 1) { result.status = "multiple"; return result; }
-    const actionType = item.actionType || "input";
-    const valid = actionType === "input"
-      ? isSupportedInput(matches[0])
-      : getQuantityAction(matches[0]) === actionType;
-    if (!valid) { result.status = "unsupported"; return result; }
-    result.status = "valid";
-    showTestHighlight(matches[0]);
-    return result;
+    const result={id:item.id,status:"not-found",matchCount:0}; let matches;
+    try { matches=document.querySelectorAll(item.selector); } catch { result.status="invalid-selector"; return result; }
+    result.matchCount=matches.length; if(!matches.length)return result; if(matches.length>1){result.status="multiple";return result;}
+    const actionType=item.actionType || "input";
+    const valid=actionType==="input" ? isSupportedInput(matches[0]) : getQuantityAction(matches[0])===actionType;
+    if(!valid){result.status="unsupported";return result;} result.status="valid"; showTestHighlight(matches[0]); return result;
   }
 
   function showTestHighlight(element) {
@@ -951,59 +928,23 @@
 
   const MANUAL_TRIGGER_PROMPT_ID = "web-locator-manual-trigger-prompt";
   let manualTriggerTimer = null;
-
-  function removeManualTriggerPrompt() {
-    if (manualTriggerTimer) {
-      window.clearTimeout(manualTriggerTimer);
-      manualTriggerTimer = null;
-    }
-    const prompt = document.getElementById(MANUAL_TRIGGER_PROMPT_ID);
-    if (prompt) prompt.remove();
-  }
-
+  function removeManualTriggerPrompt() { if(manualTriggerTimer){window.clearTimeout(manualTriggerTimer);manualTriggerTimer=null;} document.getElementById(MANUAL_TRIGGER_PROMPT_ID)?.remove(); }
   async function prepareManualTrigger(payload) {
-    const result={id:payload?.id||"",status:"not-found",matchCount:0};
-    let matches;
+    const result={id:payload?.id||"",status:"not-found",matchCount:0}; let matches;
     try { matches=document.querySelectorAll(payload.selector); } catch { result.status="invalid-selector"; return result; }
-    result.matchCount=matches.length;
-    if(!matches.length)return result;
-    if(matches.length>1){result.status="multiple";return result;}
-    const element=matches[0];
-    if(!isSupportedAimButton(element)){result.status=element.disabled?"disabled":"unsupported";return result;}
-    element.scrollIntoView({behavior:"smooth",block:"center",inline:"center"});
+    result.matchCount=matches.length; if(!matches.length)return result; if(matches.length>1){result.status="multiple";return result;}
+    const aimElement=matches[0];
+    if(!isSupportedAimButton(aimElement)){result.status=aimElement.disabled?"disabled":"unsupported";return result;}
+    aimElement.scrollIntoView({behavior:"smooth",block:"center",inline:"center"});
     await new Promise(resolve=>window.setTimeout(resolve,350));
-    if(!isElementVisible(element)){result.status="invisible";return result;}
-    showAimTestHighlight(element);
-    showManualTriggerPrompt(element,payload?.name||getAimButtonName(element));
-    result.status="awaiting-user-focus";
-    return result;
-  }
-
-  function showManualTriggerPrompt(aimElement, aimName) {
+    if(!isElementVisible(aimElement)){result.status="invisible";return result;}
+    showAimTestHighlight(aimElement);
     removeManualTriggerPrompt();
-    const prompt=document.createElement("div");
-    prompt.id=MANUAL_TRIGGER_PROMPT_ID;
-    prompt.setAttribute("role","dialog");
-    prompt.setAttribute("aria-label","手動板機鍵盤操作");
-    const title=document.createElement("strong");
-    title.textContent=`已找到準星：${aimName}`;
-    const text=document.createElement("p");
-    text.textContent="請按「啟用鍵盤操作」，或按 F6 切換至網頁，再按 Enter 或 Space。";
-    const actions=document.createElement("div");
-    const enable=document.createElement("button");
-    enable.type="button"; enable.textContent="啟用鍵盤操作";
-    const cancel=document.createElement("button");
-    cancel.type="button"; cancel.textContent="取消";
-    enable.addEventListener("click",function(event){
-      event.preventDefault(); event.stopPropagation();
-      aimElement.focus({preventScroll:true});
-      const focused=document.hasFocus() && document.activeElement===aimElement;
-      removeManualTriggerPrompt();
-      if(focused){ showAimTestHighlight(aimElement); }
-    });
-    cancel.addEventListener("click",function(event){ event.preventDefault(); event.stopPropagation(); removeManualTriggerPrompt(); });
-    actions.append(enable,cancel); prompt.append(title,text,actions); document.body.appendChild(prompt);
-    manualTriggerTimer=window.setTimeout(removeManualTriggerPrompt,15000);
+    const prompt=document.createElement("div"); prompt.id=MANUAL_TRIGGER_PROMPT_ID; prompt.setAttribute("role","status");
+    const title=document.createElement("strong"); title.textContent=`已跳到準星：${payload?.name||getAimButtonName(aimElement)}`;
+    const text=document.createElement("p"); text.textContent="請按 F6 將焦點切換到原網頁，再使用 Tab、Enter 或 Space 操作準星。";
+    prompt.append(title,text); document.body.appendChild(prompt); manualTriggerTimer=window.setTimeout(removeManualTriggerPrompt,15000);
+    result.status="awaiting-f6"; return result;
   }
 
   function testAimSelector(testItem) {
@@ -1099,38 +1040,25 @@
   }
 
   async function fillFieldItem(item, executionId) {
-    const result = { locatorId:item.locatorId, locatorName:item.locatorName || item.locatorId, status:"error", matchCount:0 };
-    let matches;
-    try { matches=document.querySelectorAll(item.selector); }
-    catch { result.status="invalid-selector"; return result; }
-    result.matchCount=matches.length;
-    if (!matches.length) { result.status="not-found"; return result; }
-    if (matches.length > 1) { result.status="multiple"; return result; }
+    const result={locatorId:item.locatorId,locatorName:item.locatorName||item.locatorId,status:"error",matchCount:0}; let matches;
+    try { matches=document.querySelectorAll(item.selector); } catch { result.status="invalid-selector"; return result; }
+    result.matchCount=matches.length; if(!matches.length){result.status="not-found";return result;} if(matches.length>1){result.status="multiple";return result;}
     const element=matches[0];
-    if (item.actionType === "increment" || item.actionType === "decrement") {
-      const requested=Number(item.repeatCount);
-      result.requestedCount=requested; result.completedCount=0;
-      if (!Number.isInteger(requested) || requested < 0 || requested > 50) { result.status="invalid-count"; return result; }
-      for (let index=0; index<requested; index+=1) {
-        if (cancelledExecutionIds.has(executionId)) { result.status="stopped"; return result; }
+    if(item.actionType==="increment" || item.actionType==="decrement"){
+      const requested=Number(item.repeatCount); result.requestedCount=requested; result.completedCount=0;
+      if(!Number.isInteger(requested)||requested<0||requested>50){result.status="invalid-count";return result;}
+      for(let index=0;index<requested;index+=1){
+        if(cancelledExecutionIds.has(executionId)){result.status="stopped";return result;}
         const current=document.querySelectorAll(item.selector);
-        if (current.length !== 1 || getQuantityAction(current[0]) !== item.actionType) { result.status="button-unavailable"; return result; }
-        current[0].click();
-        result.completedCount += 1;
-        await new Promise(resolve => window.setTimeout(resolve, 150));
+        if(current.length!==1 || getQuantityAction(current[0])!==item.actionType){result.status="button-unavailable";return result;}
+        current[0].click(); result.completedCount+=1; await new Promise(resolve=>window.setTimeout(resolve,150));
       }
       result.status="success"; return result;
     }
-    if (!(element instanceof HTMLInputElement) && !(element instanceof HTMLTextAreaElement)) { result.status="unsupported"; return result; }
-    if (!isSupportedInput(element)) { result.status=element.disabled || element.readOnly ? "readonly" : "invisible"; return result; }
-    try {
-      element.focus({preventScroll:true});
-      setNativeInputValue(element,String(item.value ?? ""));
-      element.dispatchEvent(new Event("input",{bubbles:true,composed:true}));
-      element.dispatchEvent(new Event("change",{bubbles:true,composed:true}));
-      result.status=element.value===String(item.value ?? "") ? "success" : "mismatch";
-      return result;
-    } catch(error) { result.status="error"; result.message=error instanceof Error?error.message:String(error); return result; }
+    if(!(element instanceof HTMLInputElement)&&!(element instanceof HTMLTextAreaElement)){result.status="unsupported";return result;}
+    if(!isSupportedInput(element)){result.status=element.disabled||element.readOnly?"readonly":"invisible";return result;}
+    try { element.focus({preventScroll:true}); setNativeInputValue(element,String(item.value??"")); element.dispatchEvent(new Event("input",{bubbles:true,composed:true})); element.dispatchEvent(new Event("change",{bubbles:true,composed:true})); result.status=element.value===String(item.value??"")?"success":"mismatch"; return result; }
+    catch(error){result.status="error";result.message=error instanceof Error?error.message:String(error);return result;}
   }
 
   function waitForExecutionTurn() {

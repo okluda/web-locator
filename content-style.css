@@ -76,7 +76,7 @@ box-shadow:0 0 0 2px rgb(255 255 255 / 90%),0 0 0 4px rgb(16 124 16 / 35%)
 
 /* 0.18.2 manual trigger focus handoff */
 #web-locator-manual-trigger-prompt {
- position:fixed; right:20px; bottom:20px; z-index:2147483647; width:min(340px,calc(100vw - 40px));
+ position:fixed; left:20px; top:20px; right:auto; bottom:auto; z-index:2147483647; width:min(340px,calc(100vw - 40px));
  padding:14px; border:2px solid #8764b8; border-radius:10px; background:#fff; color:#202124;
  font-family:Arial,"Microsoft JhengHei",sans-serif; box-shadow:0 6px 24px rgb(0 0 0 / 28%);
 }
